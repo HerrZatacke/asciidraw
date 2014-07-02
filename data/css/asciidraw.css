@@ -1,0 +1,14 @@
+.asciidraw {width: 100%;}
+.asciidraw table { color: white; margin: 30px auto; border-left: 1px solid #222; border-top: 1px solid #222; }
+.asciidraw table td { font-family: monospace; white-space: pre; cursor: crosshair; border-right: 1px solid #222; border-bottom: 1px solid #222; font-size: 13px; line-height: 16px; }
+.asciidraw table td { background: #000; }
+.asciidraw table td:hover { background: #444; }
+.asciidraw table td.active { background: #994444; }
+.asciidraw table td.active:hover { background: #aa5555; }
+.asciidraw table td.solidSpace { background: #151515; }
+.asciidraw table td.solidSpace:hover { background: #595959; }
+.asciidraw table td.active.solidSpace { background: #ad6969; }
+.asciidraw table td.active.solidSpace:hover { background: #be8080; }
+.asciidraw table.charTable td { border-right: 1px solid #222; border-bottom: 1px solid #222; font-size: 24px; width:auto; height: auto; padding: 10px; }
+.asciidraw .menu {margin:10px auto; height: auto; text-align: center;}
+.asciidraw .menu a {font-size: 9px; display: inline-block;}

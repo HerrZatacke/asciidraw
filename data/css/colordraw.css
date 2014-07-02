@@ -1,0 +1,59 @@
+
+.colordraw {width: 100%;}
+
+.colordraw table {
+    margin: 30px auto;
+    border-collapse: separate;
+    border: 1px solid #666;
+}
+
+.colordraw table td {
+    margin: 1px;
+    cursor: crosshair;
+    border-width: 1px;
+    border-style: solid;
+    border-color: #666;
+    font-size: 0;
+    line-height: 0;
+    height:16px;
+    width:16px;
+    background: #000;
+}
+
+.colordraw table td:hover { border-color: #fff; }
+.colordraw table td.active { border-color: #bb6666; }
+.colordraw table td.active:hover { border-color: #ff0000; }
+
+.colordraw table.colorTable {
+    /*border-collapse: collapse;*/
+    border: none;
+}
+
+.colordraw table.colorTable td { 
+    cursor: default;
+    border: 1px solid #444;
+    font-size: 0;
+    width: 20px;
+    height: 20px;
+}
+
+.colordraw table.colorTable td.greytone {
+    border: 1px solid #bbb;
+}
+
+.colordraw table.colorTable td.active {
+    border-radius: 5px;
+    border: 3px solid #fff;
+    width: 16px;
+    height: 16px;
+}
+
+.colordraw table.colorTable td:hover {
+    border: 2px solid #000;
+    width: 18px;
+    height: 18px;
+}
+
+.colordraw .menu {margin:10px auto; height: auto; text-align: center;}
+.colordraw .menu a {display: inline-block;}
+.colordraw .menu a img {margin:10px 15px;}
