@@ -26,7 +26,7 @@
             
             this.bindEvents();
             
-            this.fillAll('#000');
+            this.fillAll(this.drawColor);
 
         }
 
@@ -181,7 +181,7 @@
                     , href : '#empty'
                     , preventDefault : true
                     , callback: function() {
-                        _this.fillAll('#000');
+                        _this.fillAll(_this.drawColor);
                     }
                 }, {
                     text:'<img src="data/icons/resize.png" />'
