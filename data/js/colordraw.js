@@ -16,17 +16,24 @@
 
     ColorDraw.prototype = {
         init : function() {
-
+            var _this = this;
             this.storage = new ListStorage('colordraw');
 
-            this.drawColor = '#fff';
             this.menu = this.createMenu();
+
+            this.undo = new Undo(this.menu.get().find('.undocount'), this.menu.get().find('.redocount'));
+            this.undo.setChangeCallback(function(data){
+                _this.writeData(data);
+            });
+
+            this.drawColor = '#fff';
             this.charTable = this.createColorTable(this.drawColor);
             this.context.append(this.menu.get(), this.drawTable, this.charTable);
             
             this.bindEvents();
             
             this.fillAll(this.drawColor);
+            this.undo.saveState(this.saveData());
 
         }
 
@@ -106,7 +113,7 @@
         }
 
         , createDrawTable : function(height,width) {
-            var drawTable = $('<table></table>');
+            var drawTable = $('<table></table>').addClass('drawTable');
             for (var iHeight=0; iHeight<height; iHeight++) {
                 var row = $('<tr></tr>');
                 drawTable.append(row);
@@ -120,22 +127,30 @@
 
         , resizeDrawTable : function(height,width) {
 
+            var resized = false;
+
             // Crop Rows
             if (this.drawTable.find('tr').length>height) {
                 this.drawTable.find('tr:gt('+(height-1)+')').remove();
+                resized = true;
             } else // Add Rows
             while (this.drawTable.find('tr').length<height) {
                 this.drawTable.append('<tr></tr>');
+                resized = true;
             }
             this.drawTable.find('tr').each(function(i, tr) {
                 var row = $(tr);
                 if (row.find('td').length>width) {
                     row.find('td:gt('+(width-1)+')').remove();
+                    resized = true;
                 } else // Add Rows
                 while (row.find('td').length<width) {
                     row.append('<td> </td>');
+                    resized = true;
                 }
             });
+
+            return resized;
         }
 
 
@@ -158,6 +173,8 @@
                                 , preventDefault : true
                                 , callback : function() {
                                     _this.writeData(_this.storage.loadItem(itemName));
+                                    _this.undo.clearAll();
+                                    _this.undo.saveState(_this.saveData());
                                     _this.layer();
                                 }
                             });
@@ -182,6 +199,8 @@
                     , preventDefault : true
                     , callback: function() {
                         _this.fillAll(_this.drawColor);
+                        _this.undo.clearAll();
+                        _this.undo.saveState(_this.saveData());
                     }
                 }, {
                     text:'<img src="data/icons/resize.png" />'
@@ -190,12 +209,32 @@
                     , preventDefault : true
                     , callback: function() {
                         var currentDimensions = _this.getCurrentDimensions()
-                            , newDim = (window.prompt('Enter new dimensios for drawing area',currentDimensions.width+','+currentDimensions.height)||'').split(',')
+                            , newDim = (window.prompt('Enter new dimensions for drawing area',currentDimensions.width+','+currentDimensions.height)||'').split(',')
                             , newWidth = newDim[0]||currentDimensions.width
                             , newHeight = newDim[1]||currentDimensions.height
                         ;
 
-                        _this.resizeDrawTable(newHeight, newWidth);
+                        if (_this.resizeDrawTable(newHeight, newWidth)) {
+                            _this.undo.clearAll();
+                            _this.undo.saveState(_this.saveData());
+                        }
+
+                    }
+                }, {
+                    text:'<img src="data/icons/undo.png" /><span class="undocount">0</span>'
+                    , title : 'Undo'
+                    , href : '#undo'
+                    , preventDefault : true
+                    , callback: function() {
+                        _this.undo.callUpdate(-1);
+                    }
+                }, {
+                    text:'<img src="data/icons/redo.png" /><span class="redocount">0</span>'
+                    , title : 'Redo'
+                    , href : '#redo'
+                    , preventDefault : true
+                    , callback: function() {
+                        _this.undo.callUpdate(1);
                     }
                 }
             ]);
@@ -221,6 +260,7 @@
                 alert('invalid data');
                 return;
             }
+
             var _this = this
                 , currentDimenstions = this.getCurrentDimensions()
                 , dataRows = data.split('\n')
@@ -232,7 +272,9 @@
                 needWidth = Math.max(needWidth,dataRows[rowNum].split('#').length-1);
             }
 
-            this.resizeDrawTable(needHeight,needWidth);
+            if (this.resizeDrawTable(needHeight,needWidth)) {
+                this.undo.saveState(this.saveData());
+            }
 
             for (var rowNum=0;rowNum<dataRows.length;rowNum++) {
                 var row = dataRows[rowNum].split('#');
@@ -272,8 +314,15 @@
             ;
 
             $(document).bind('mousedown mouseup', function(ev) {
+
                 if (ev.type === 'mousedown') buttonPressed = true;
-                if (ev.type === 'mouseup') buttonPressed = false;
+                if (ev.type === 'mouseup') {
+                    buttonPressed = false;
+
+                    if (!ev.ctrlKey && $(ev.target).closest('table').hasClass('drawTable')) {
+                        _this.undo.saveState(_this.saveData());
+                    }
+                }
             });
 
             this.drawTable.on('mousedown mousemove mouseenter mouseleave', 'td', function(ev) {
@@ -283,7 +332,7 @@
                 ev.preventDefault();
                 
                 if (ev.type == 'mousedown' || ev.type == 'mousemove') {
-                    if (ev.shiftKey) {
+                    if (ev.ctrlKey) {
                         _this.cellGet(cell);
                     } else {
                         _this.cellSet(cell);
@@ -330,7 +379,9 @@
         }
 
         , lemons : function() {
-            this.writeData("#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#727272#393939#cf9#cf9#cf9#cf9#cf9#727272#727272#727272#727272#393939#cf9#cf9#727272#727272#cf9#cf9#cf9#727272#393939#cf9#cf9#cf9#727272#727272#727272#727272#cf9#cf9#cf9#727272#727272#cf9#cf9#727272#393939#cf9#cf9#cf9#727272#727272#727272#393939#cf9#cf9#cf9\n#cf9#cf9#cf9#727272#393939#cf9#cf9#cf9#cf9#cf9#727272#393939#393939#393939#393939#cf9#cf9#727272#727272#727272#cf9#727272#727272#393939#cf9#cf9#727272#727272#393939#393939#727272#393939#cf9#cf9#727272#727272#727272#cf9#727272#393939#cf9#cf9#727272#727272#393939#393939#393939#cf9#cf9#cf9\n#cf9#cf9#cf9#727272#393939#cf9#cf9#cf9#cf9#cf9#727272#393939#cf9#cf9#cf9#cf9#cf9#727272#393939#727272#727272#727272#727272#393939#cf9#cf9#727272#393939#cf9#cf9#727272#393939#cf9#cf9#727272#727272#727272#727272#727272#393939#cf9#cf9#727272#393939#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#727272#393939#cf9#cf9#cf9#cf9#cf9#727272#727272#393939#cf9#cf9#cf9#cf9#727272#393939#393939#727272#393939#727272#393939#cf9#cf9#727272#393939#cf9#cf9#727272#393939#cf9#cf9#727272#393939#727272#727272#727272#393939#cf9#cf9#cf9#727272#727272#727272#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#727272#393939#cf9#cf9#cf9#cf9#cf9#727272#393939#cf9#cf9#cf9#cf9#cf9#727272#393939#cf9#393939#cf9#727272#393939#cf9#cf9#727272#393939#cf9#cf9#727272#393939#cf9#cf9#727272#393939#393939#727272#727272#393939#cf9#cf9#cf9#cf9#cf9#727272#393939#cf9#cf9#cf9\n#cf9#cf9#cf9#727272#727272#727272#727272#393939#cf9#cf9#727272#727272#727272#727272#393939#cf9#cf9#727272#393939#cf9#cf9#cf9#727272#393939#cf9#cf9#727272#727272#727272#727272#727272#393939#cf9#cf9#727272#393939#cf9#393939#727272#393939#cf9#cf9#727272#727272#727272#727272#393939#cf9#cf9#cf9\n#cf9#cf9#cf9#393939#393939#393939#393939#393939#cf9#cf9#393939#393939#393939#393939#393939#cf9#cf9#393939#393939#cf9#cf9#cf9#393939#393939#cf9#cf9#cf9#393939#393939#393939#393939#cf9#cf9#cf9#393939#393939#cf9#cf9#393939#393939#cf9#cf9#393939#393939#393939#393939#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#030#c00#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#330#c00#c00#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#330#f30#c00#c00#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#060#030#f30#c00#c00#900#900#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#330#330#030#f30#c00#c00#900#900#900#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#900#c00#c00#f30#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#330#030#060#f30#c00#c00#c00#c00#900#900#900#900#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#900#c00#900#900#c00#f30#030#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#030#330#060#f30#c00#c00#300#300#c00#900#900#900#600#600#600#600#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#600#600#600#600#600#600#900#900#900#c00#c00#f30#060#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#030#330#060#060#f30#c00#600#c00#c00#c00#c00#900#900#600#900#600#600#600#600#900#600#600#600#900#600#600#600#600#600#900#900#900#900#900#c00#c00#c00#f30#030#330#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#060#030#060#060#f30#c00#c00#c00#c00#300#c00#c00#900#900#900#600#600#900#600#600#600#600#600#900#600#900#600#900#900#900#c00#c00#c00#c00#c00#c00#c00#f30#060#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#060#060#330#060#060#f30#c00#c00#c00#300#600#900#c00#c00#900#900#900#900#900#600#900#600#900#900#900#900#900#900#c00#c00#c00#300#600#c00#c00#c00#f30#330#330#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#060#030#330#330#060#f30#c00#c00#c00#c00#c00#c00#c00#900#c00#900#900#900#900#900#900#900#900#900#900#c00#900#c00#c00#c00#600#c00#c00#c00#f30#330#030#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#060#060#030#030#060#030#f30#c00#c00#c00#c00#300#600#c00#c00#c00#c00#900#c00#c00#900#c00#c00#900#c00#c00#600#300#c00#c00#c00#c00#c00#f30#030#060#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#030#060#060#030#030#030#f30#f30#c00#c00#c00#600#c00#c00#600#c00#c00#c00#c00#c00#c00#c00#c00#c00#c00#c00#300#c00#c00#c00#c00#f30#060#030#030#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#030#330#060#060#330#330#060#060#f30#f30#c00#c00#c00#300#300#c00#600#c00#c00#600#300#c00#c00#300#c00#c00#c00#c00#c00#c00#f30#030#060#330#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#330#330#030#330#330#060#060#060#030#f30#c00#c00#c00#c00#c00#300#300#c00#300#c00#c00#600#300#c00#c00#c00#c00#f30#f30#030#030#030#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#030#060#060#060#330#330#030#030#030#f30#f30#f30#c00#c00#c00#c00#c00#c00#c00#c00#c00#c00#c00#f30#f30#f30#030#330#330#060#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#030#030#030#060#060#060#030#030#030#030#f30#f30#c00#c00#c00#c00#c00#c00#c00#c00#f30#030#060#060#030#030#030#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#996#996#996#996#996#996#cf9#cf9#cf9#030#030#060#060#060#030#030#030#330#030#030#f30#f30#f30#f30#f30#f30#f30#f30#030#030#330#330#060#030#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#996#996#996#996#996#996#996#996#996#996#030#060#030#030#330#330#060#030#030#030#030#030#030#030#060#060#060#060#330#030#030#393939#393939#996#996#996#996#996#996#996#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#996#996#996#996#996#996#996#393939#393939#393939#030#030#330#060#060#030#330#330#060#060#330#330#060#060#030#030#030#030#393939#393939#393939#393939#996#996#996#996#996#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#996#996#996#996#996#996#393939#393939#393939#393939#393939#030#060#330#030#030#060#030#330#330#030#030#393939#393939#393939#393939#393939#996#996#996#996#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#996#996#996#996#996#393939#393939#393939#393939#393939#393939#393939#393939#393939#393939#393939#393939#393939#393939#393939#996#996#996#996#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#996#996#996#996#996#996#996#996#996#996#996#996#996#996#996#996#996#996#996#996#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9");
+            this.writeData("#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#666#333#cf9#cf9#cf9#cf9#cf9#666#666#666#666#333#cf9#cf9#666#666#cf9#cf9#cf9#666#333#cf9#cf9#cf9#666#666#666#666#cf9#cf9#cf9#666#666#cf9#cf9#666#333#cf9#cf9#cf9#666#666#666#333#cf9#cf9#cf9\n#cf9#cf9#cf9#666#333#cf9#cf9#cf9#cf9#cf9#666#333#333#333#333#cf9#cf9#666#666#666#cf9#666#666#333#cf9#cf9#666#666#333#333#666#333#cf9#cf9#666#666#666#cf9#666#333#cf9#cf9#666#666#333#333#333#cf9#cf9#cf9\n#cf9#cf9#cf9#666#333#cf9#cf9#cf9#cf9#cf9#666#333#cf9#cf9#cf9#cf9#cf9#666#333#666#666#666#666#333#cf9#cf9#666#333#cf9#cf9#666#333#cf9#cf9#666#666#666#666#666#333#cf9#cf9#666#333#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#666#333#cf9#cf9#cf9#cf9#cf9#666#666#333#cf9#cf9#cf9#cf9#666#333#333#666#333#666#333#cf9#cf9#666#333#cf9#cf9#666#333#cf9#cf9#666#333#666#666#666#333#cf9#cf9#cf9#666#666#666#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#666#333#cf9#cf9#cf9#cf9#cf9#666#333#cf9#cf9#cf9#cf9#cf9#666#333#cf9#333#cf9#666#333#cf9#cf9#666#333#cf9#cf9#666#333#cf9#cf9#666#333#333#666#666#333#cf9#cf9#cf9#cf9#cf9#666#333#cf9#cf9#cf9\n#cf9#cf9#cf9#666#666#666#666#333#cf9#cf9#666#666#666#666#333#cf9#cf9#666#333#cf9#cf9#cf9#666#333#cf9#cf9#666#666#666#666#666#333#cf9#cf9#666#333#cf9#333#666#333#cf9#cf9#666#666#666#666#333#cf9#cf9#cf9\n#cf9#cf9#cf9#333#333#333#333#333#cf9#cf9#333#333#333#333#333#cf9#cf9#333#333#cf9#cf9#cf9#333#333#cf9#cf9#cf9#333#333#333#333#cf9#cf9#cf9#333#333#cf9#cf9#333#333#cf9#cf9#333#333#333#333#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#030#c00#c00#c00#900#900#900#900#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#330#f30#c00#c00#900#900#900#600#900#600#600#600#600#600#600#600#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#330#f30#c00#c00#600#300#600#300#600#600#600#600#600#600#600#600#600#600#600#600#600#600#600#600#600#600#600#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#060#030#f30#c00#c00#600#900#900#600#900#900#900#600#600#600#600#600#600#600#600#600#600#600#600#600#600#600#600#600#600#600#600#600#600#900#900#900#c00#c00#c00#c00#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#330#330#030#f30#c00#c00#c00#600#300#900#900#900#900#900#600#600#600#600#600#600#600#600#600#600#600#600#600#600#600#600#900#900#900#600#900#900#600#600#c00#c00#f30#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#330#030#060#f30#c00#c00#c00#c00#c00#c00#900#600#900#600#900#900#600#900#600#900#600#600#600#600#600#900#600#600#600#600#900#900#300#600#900#c00#300#c00#c00#f30#030#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#030#330#060#f30#c00#c00#600#300#c00#600#300#900#900#900#900#900#600#900#900#600#900#900#600#900#600#600#600#900#900#900#900#900#900#600#c00#c00#c00#c00#f30#060#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#030#330#060#060#f30#c00#c00#600#c00#c00#c00#900#900#300#600#900#900#900#600#900#900#900#900#900#600#900#600#900#900#300#600#900#900#300#600#c00#c00#f30#030#330#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#060#030#060#060#f30#c00#c00#c00#c00#300#300#c00#900#600#c00#900#300#900#900#900#900#c00#900#900#900#900#300#600#900#600#900#c00#c00#c00#c00#c00#c00#f30#060#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#060#330#060#060#f30#c00#c00#c00#c00#600#900#c00#c00#c00#600#600#900#300#600#900#600#900#900#600#900#600#900#900#c00#c00#300#600#c00#c00#c00#f30#330#330#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#060#030#330#330#060#f30#c00#c00#c00#c00#c00#300#600#c00#c00#c00#c00#600#c00#c00#300#600#c00#300#600#c00#c00#c00#c00#c00#600#c00#c00#c00#f30#330#030#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#060#030#030#060#030#f30#c00#c00#c00#c00#c00#600#c00#c00#c00#c00#c00#c00#c00#c00#c00#c00#c00#c00#c00#600#300#c00#c00#c00#c00#c00#f30#030#060#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#030#060#060#030#030#030#f30#f30#c00#c00#c00#c00#c00#600#600#c00#300#300#c00#300#600#c00#c00#300#c00#c00#300#c00#c00#c00#c00#f30#060#030#030#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#330#060#060#330#330#060#060#f30#f30#c00#c00#c00#c00#300#c00#600#c00#c00#600#c00#c00#600#300#c00#c00#c00#c00#c00#c00#f30#030#060#330#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#330#030#330#330#060#060#060#030#f30#c00#c00#c00#c00#c00#c00#c00#c00#c00#c00#c00#c00#c00#c00#c00#c00#c00#f30#f30#030#030#030#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#060#060#060#330#330#030#030#030#f30#f30#f30#c00#c00#c00#c00#c00#c00#c00#c00#c00#c00#c00#f30#f30#f30#030#330#330#060#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#030#030#030#060#060#060#030#030#030#030#f30#f30#c00#c00#c00#c00#c00#c00#c00#c00#f30#030#060#060#030#030#030#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#996#996#996#996#996#996#cf9#cf9#cf9#030#030#060#060#060#030#030#030#330#030#030#f30#f30#f30#f30#f30#f30#f30#f30#030#030#330#330#060#030#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#996#996#996#996#996#996#996#996#996#996#030#060#030#030#330#330#060#030#030#030#030#030#030#030#060#060#060#060#330#030#030#333#333#996#996#996#996#996#996#996#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#996#996#996#996#996#996#996#333#333#333#030#030#330#060#060#030#330#330#060#060#330#330#060#060#030#030#030#030#333#333#333#333#996#996#996#996#996#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#996#996#996#996#996#996#333#333#333#333#333#030#060#330#030#030#060#030#330#330#030#030#333#333#333#333#333#996#996#996#996#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#996#996#996#996#996#333#333#333#333#333#333#333#333#333#333#333#333#333#333#333#996#996#996#996#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#996#996#996#996#996#996#996#996#996#996#996#996#996#996#996#996#996#996#996#996#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9\n#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9#cf9");
+            this.undo.clearAll();
+            this.undo.saveState(this.saveData());
         }
 
     };

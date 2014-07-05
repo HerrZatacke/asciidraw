@@ -55,5 +55,27 @@
 }
 
 .colordraw .menu {margin:10px auto; height: auto; text-align: center;}
-.colordraw .menu a {display: inline-block;}
+.colordraw .menu a {display: inline-block; position: relative;}
 .colordraw .menu a img {margin:10px 15px;}
+.colordraw .menu a span {
+    position: absolute;
+    top:0;
+    left:0;
+    width: 100%;
+    height: 100%;
+    line-height: 74px;
+    font-weight:bold;
+    font-size:20px;
+    text-align: center;
+    text-shadow:  1px  1px 1px black,
+                  1px -1px 1px black,
+                 -1px  1px 1px black,
+                 -1px -1px 1px black;
+}
+.colordraw .menu a span.undocount { color: #fc0; }
+.colordraw .menu a span.redocount { color: #0c3; }
+
+
+
+
+
